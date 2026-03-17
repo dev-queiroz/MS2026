@@ -1,0 +1,58 @@
+Crie um app mobile nativo completo usando Expo + React Native (Android e iOS) chamado "Meu Futuro 2026" para Douglas, 17 anos, nascido 05/09/2008, estudante de Ciência da Computação 1º semestre UFC Quixadá-CE.
+
+Requisitos obrigatórios:
+- Tudo 100% local (AsyncStorage ou similar) para velocidade máxima no APK. Backup futuro via export JSON para PC.
+- Tema dark padrão (sem light mode).
+- Design minimalista e limpo (sem gamificação pesada).
+- Push notifications nativas via Expo Notifications (usuário vai configurar quantas e horários depois).
+- Chat com IA integrada (Replit AI com acesso internet) para responder qualquer pergunta e gerar planos (ex.: "Como fazer primeiro freela hoje?", "Atualize salário médio junior dev Londres", "Plano barato para ganhar músculo com 81kg/1,79m").
+
+Seções e funcionalidades exatas:
+
+1. Dashboard principal
+   - Visão geral de todos os âmbitos com streaks e progresso semanal.
+
+2. Faculdade (dinâmico)
+   - Matérias atuais: Pré-cálculo, Matemática Básica, Fundamentos de Programação, Ética Direito e Legislação, Introdução à Ciência da Computação, Interação Humano-Computador.
+   - Permitir adicionar novos semestres e matérias automaticamente.
+   - Agenda de trabalhos/atividades por matéria + lembretes push.
+
+3. Estudos e Programação
+   - Trackers separados: Inglês (foco leitura + falar frases), Java (backend), TypeScript (fullstack), Go.
+   - Timer Pomodoro + checklist diário.
+   - GitHub tracker automático (link github.com/dev-queiroz) com lembretes "commit hoje".
+
+4. Sonhos e Objetivos (quebrado em SMART)
+   - Meta grande "Morar em Londres como programador" com fases automáticas baseadas na data 05/09/2026 (18 anos):
+     - Fase 1 (agora até 18 anos): Portfólio forte (5 projetos Java/Go/TS), inglês B2, primeiros freelas.
+     - Fase 2 (a partir dos 18): Aplicar Global Talent Visa (Tech Nation) – checklist real com requisitos 2026.
+     - Fase 3: Chegada + primeiro emprego (£38k–£45k médio junior).
+   - Outros sonhos: Independência financeira, liberdade geográfica, conhecer 3 países de primeiro mundo, salário alto rápido.
+   - IA gera plano passo a passo atualizado.
+
+5. Finanças
+   - Rastreamento de gastos/poupança.
+   - Atualização automática (via IA) de dólar, euro, libra e principais moedas europeias vs Real.
+   - Comparativo salarial real-time: backend Java, Go, Nest/Express, front React/Next, fullstack TS (média UK/Londres 2026).
+
+6. Corpo e Saúde
+   - Peso atual 81kg / 1,79m.
+   - Meta: reduzir gordura + ganhar massa muscular com orçamento zero (treinos bodyweight em casa + dieta barata brasileira: arroz, feijão, ovo, frango, banana etc.).
+   - Planner de treinos simples + tracker de peso/semanas.
+
+7. Vida Pessoal
+   - Lembrete fixo Missa todo domingo.
+   - Networking: lembretes semanais "postar no GitHub", "conectar 3 devs no LinkedIn", "mensagem para UFC alumni".
+   - Tempo para música, jogos no celular e ler livros (bloco diário).
+   - (Namorada 16 anos fica fora por privacidade, mas pode adicionar tarefas manuais se quiser).
+
+8. Freelance 2026
+   - Seção dedicada "Primeiro freela este mês" com checklist, plataformas (Upwork, Fiverr, 99Freelas), templates de proposta.
+
+Outros:
+- Exportar tudo como PDF ou JSON.
+- Interface 100% em português brasileiro.
+- Minimalista, rápido, sem anúncios.
+- Comece gerando o projeto Expo, mostre QR code para preview imediato no Expo Go.
+
+Faça o build completo e me mostre o preview.
