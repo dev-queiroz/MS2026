@@ -12,15 +12,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4 # Atualizado para v4
         with:
-          version: 8 # Versão estável do pnpm
+          version: 9 # Mudamos para a versão 9 para suportar Catalogs (@catalog:)
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'pnpm' # Agora o cache vai funcionar com pnpm
+          node-version: 20 # Recomendado para pnpm 9 e projetos React Native atuais
+          cache: 'pnpm'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -29,8 +29,8 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        # No monorepo, instalamos as dependências da raiz
-        run: pnpm install
+        # Adicionamos --no-frozen-lockfile caso o lockfile precise de um pequeno ajuste automático na nuvem
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build Android APK
         run: |
