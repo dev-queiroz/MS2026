@@ -11,13 +11,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8 # Versão estável do pnpm
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          # Adicionamos o caminho do package.json para o cache funcionar
-          cache-dependency-path: artifacts/mobile/package-lock.json
+          cache: 'pnpm' # Agora o cache vai funcionar com pnpm
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -26,13 +29,10 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        # Mudamos para a pasta correta antes de instalar
-        run: |
-          cd artifacts/mobile
-          npm install
+        # No monorepo, instalamos as dependências da raiz
+        run: pnpm install
 
       - name: Build Android APK
-        # Entramos na pasta mobile e depois na android para rodar o gradle
         run: |
           cd artifacts/mobile/android
           chmod +x gradlew
@@ -42,5 +42,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          # O caminho do arquivo final também muda
           path: artifacts/mobile/android/app/build/outputs/apk/debug/app-debug.apk
