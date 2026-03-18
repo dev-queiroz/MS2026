@@ -1,7 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   Platform,
   Pressable,
@@ -12,163 +11,151 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/colors";
-import { useAppData, type Sonho } from "@/contexts/AppDataContext";
+import { useAppData } from "@/contexts/AppDataContext";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { Badge } from "@/components/ui/Badge";
 
-function SonhoCard({ sonho }: { sonho: Sonho }) {
-  const [expanded, setExpanded] = useState(false);
-  const { toggleSonhoTarefa } = useAppData();
-
-  const totalTarefas = sonho.fases.reduce((acc, f) => acc + f.tarefas.length, 0);
-  const doneTarefas = sonho.fases.reduce((acc, f) => acc + f.tarefas.filter(t => t.concluido).length, 0);
-  const progresso = totalTarefas > 0 ? Math.round((doneTarefas / totalTarefas) * 100) : sonho.progresso;
-
-  return (
-    <Card style={styles.sonhoCard}>
-      <Pressable onPress={() => setExpanded(e => !e)}>
-        <View style={styles.sonhoHeader}>
-          <View style={[styles.sonhoColorDot, { backgroundColor: sonho.cor }]} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sonhoTitulo}>{sonho.titulo}</Text>
-            <Text style={styles.sonhoDesc}>{sonho.descricao}</Text>
-          </View>
-          <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={Colors.textSecondary} />
-        </View>
-        <View style={styles.progressRow}>
-          <ProgressBar value={progresso} max={100} color={sonho.cor} height={4} style={{ flex: 1 }} />
-          <Text style={[styles.progressText, { color: sonho.cor }]}>{progresso}%</Text>
-        </View>
-        {sonho.prazo && (
-          <Text style={styles.prazoText}>
-            <Feather name="calendar" size={11} color={Colors.textTertiary} /> Meta: {new Date(sonho.prazo).getFullYear()}
-          </Text>
-        )}
-      </Pressable>
-
-      {expanded && (
-        <View style={styles.fasesContainer}>
-          <View style={styles.divider} />
-          {sonho.fases.map((fase, fIdx) => {
-            const faseDone = fase.tarefas.filter(t => t.concluido).length;
-            return (
-              <View key={fase.id} style={styles.faseItem}>
-                <View style={styles.faseHeader}>
-                  <View style={[styles.faseBullet, { backgroundColor: fase.concluida ? sonho.cor : Colors.surfaceElevated }]}>
-                    {fase.concluida ? (
-                      <Feather name="check" size={12} color="#fff" />
-                    ) : (
-                      <Text style={styles.faseBulletNum}>{fIdx + 1}</Text>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.faseTitulo}>{fase.titulo}</Text>
-                    <Text style={styles.faseDesc}>{fase.descricao}</Text>
-                  </View>
-                  <Badge
-                    label={`${faseDone}/${fase.tarefas.length}`}
-                    color={sonho.cor + "22"}
-                    textColor={sonho.cor}
-                    size="sm"
-                  />
-                </View>
-                {fase.tarefas.map(tarefa => (
-                  <Pressable
-                    key={tarefa.id}
-                    style={styles.tarefaItem}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      toggleSonhoTarefa(sonho.id, fase.id, tarefa.id);
-                    }}
-                  >
-                    <View style={[styles.checkbox, tarefa.concluido && { backgroundColor: sonho.cor, borderColor: sonho.cor }]}>
-                      {tarefa.concluido && <Feather name="check" size={11} color="#fff" />}
-                    </View>
-                    <Text style={[styles.tarefaText, tarefa.concluido && styles.tarefaTextDone]}>
-                      {tarefa.texto}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            );
-          })}
-        </View>
-      )}
-    </Card>
-  );
-}
+const LONDON_DATE = new Date("2026-09-05");
 
 export default function SonhosScreen() {
   const insets = useSafeAreaInsets();
-  const { data } = useAppData();
+  const { goals } = useAppData();
   const isWeb = Platform.OS === "web";
 
-  const hoje = new Date();
-  const londresToday = new Date("2026-09-05");
-  const diffDias = Math.max(0, Math.ceil((londresToday.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)));
+  const diasLondres = Math.max(0, Math.ceil((LONDON_DATE.getTime() - Date.now()) / 86400000));
+  const totalDias = 365;
+  const londonProgress = Math.min(100, Math.round(((totalDias - diasLondres) / totalDias) * 100));
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + (isWeb ? 67 : 0) + 16, paddingBottom: (isWeb ? 34 : 0) + 100 },
+        { paddingTop: insets.top + (isWeb ? 67 : 0) + 16, paddingBottom: 120 },
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Sonhos e Objetivos</Text>
-      <Text style={styles.subtitle}>Metas SMART • Passo a passo</Text>
+      <Text style={styles.title}>Sonhos</Text>
+      <Text style={styles.subtitle}>London 2026 • Metas SMART</Text>
 
       {/* London Feature Card */}
-      <Pressable
-        onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Como posso conseguir o Global Talent Visa Tech Nation para trabalhar em Londres como desenvolvedor?" } })}
-        style={styles.londonFeature}
-      >
-        <View style={styles.londonContent}>
+      <Card style={styles.londonCard}>
+        <View style={styles.londonTop}>
           <Text style={styles.londonFlag}>🇬🇧</Text>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.londonTitle}>Londres 2026-2027</Text>
-            <Text style={styles.londonSub}>
-              {diffDias > 0 ? `${diffDias} dias para a Fase 2` : "Hora de aplicar o visto!"}
-            </Text>
-            <Text style={styles.londonRange}>Salário-alvo: £38.000 – £45.000/ano</Text>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={styles.londonTitle}>Londres 2026–2027</Text>
+            <Text style={styles.londonSub}>Trabalhar como dev • £38k–£45k/ano</Text>
           </View>
         </View>
-        <View style={styles.londonAiHint}>
-          <Feather name="cpu" size={12} color={Colors.gold} />
-          <Text style={styles.londonAiText}>Perguntar à IA sobre o Global Talent Visa</Text>
-          <Feather name="chevron-right" size={12} color={Colors.gold} />
-        </View>
-      </Pressable>
+        <Text style={styles.londonDays}>{diasLondres} dias</Text>
+        <Text style={styles.londonDate}>até 05/09/2026 (alvo Fase 2 — Global Talent Visa)</Text>
+        <ProgressBar value={londonProgress} max={100} color={Colors.gold} height={5} style={styles.londonBar} />
 
-      {data.sonhos.map(s => (
-        <View key={s.id} style={{ marginBottom: 12 }}>
-          <SonhoCard sonho={s} />
+        <View style={styles.londonSteps}>
+          {[
+            { num: "1", label: "Base sólida", desc: "Portfólio, inglês B2, primeiro freela", done: false },
+            { num: "2", label: "Global Talent Visa", desc: "Tech Nation UK — a partir de 18 anos", done: false },
+            { num: "3", label: "Londres — Primeiro Emprego", desc: "Junior dev £38k+ • Mudança real", done: false },
+          ].map((step, i) => (
+            <View key={i} style={styles.londonStep}>
+              <View style={[styles.stepNum, step.done && { backgroundColor: Colors.gold }]}>
+                <Text style={styles.stepNumText}>{step.num}</Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.stepLabel}>{step.label}</Text>
+                <Text style={styles.stepDesc}>{step.desc}</Text>
+              </View>
+            </View>
+          ))}
         </View>
-      ))}
 
-      {/* Salary Comparison */}
-      <Text style={styles.sectionLabel}>Salários UK 2026 (estimativa)</Text>
+        <Pressable
+          style={styles.londonAiBtn}
+          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um plano detalhado passo a passo para eu conseguir o Global Talent Visa UK (Tech Nation) sendo desenvolvedor brasileiro de 17 anos. Inclua requisitos, evidências necessárias, timeline e como construir meu portfólio até lá." } })}
+        >
+          <Feather name="cpu" size={13} color={Colors.gold} />
+          <Text style={styles.londonAiBtnText}>Plano detalhado London via IA</Text>
+          <Feather name="arrow-right" size={13} color={Colors.gold} />
+        </Pressable>
+      </Card>
+
+      {/* Goals SMART Summary */}
+      <View style={styles.goalsHeader}>
+        <Text style={styles.sectionLabel}>Minhas Metas SMART</Text>
+        <Pressable
+          style={styles.addGoalBtn}
+          onPress={() => router.push("/(tabs)/estudos")}
+        >
+          <Feather name="target" size={14} color={Colors.accent} />
+          <Text style={styles.addGoalBtnText}>Gerenciar</Text>
+        </Pressable>
+      </View>
+
+      {goals.length === 0 ? (
+        <Card style={styles.noGoalsCard}>
+          <Feather name="target" size={32} color={Colors.textTertiary} />
+          <Text style={styles.noGoalsTitle}>Nenhuma meta cadastrada</Text>
+          <Text style={styles.noGoalsDesc}>
+            Crie metas SMART na aba Estudos para acompanhar seu progresso.
+          </Text>
+          <Pressable
+            style={styles.confirmBtn}
+            onPress={() => router.push("/(tabs)/estudos")}
+          >
+            <Text style={styles.confirmBtnText}>Criar primeira meta</Text>
+          </Pressable>
+        </Card>
+      ) : (
+        goals.map(g => {
+          const done = g.milestones.filter(m => m.concluido).length;
+          const total = g.milestones.length;
+          const progress = total > 0 ? Math.round((done / total) * 100) : g.progresso;
+          return (
+            <Pressable
+              key={g.id}
+              style={styles.goalCard}
+              onPress={() => router.push("/(tabs)/estudos")}
+            >
+              <View style={styles.goalHeader}>
+                <View style={[styles.goalDot, { backgroundColor: g.cor }]} />
+                <Text style={styles.goalTitulo} numberOfLines={1}>{g.titulo}</Text>
+                <Text style={[styles.goalPct, { color: g.cor }]}>{progress}%</Text>
+              </View>
+              <ProgressBar value={progress} max={100} color={g.cor} height={3} style={styles.goalBar} />
+              {g.prazo && (
+                <Text style={styles.goalPrazo}>
+                  Meta: {new Date(g.prazo).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                </Text>
+              )}
+              {total > 0 && (
+                <Text style={styles.goalMilestones}>{done}/{total} milestones concluídos</Text>
+              )}
+            </Pressable>
+          );
+        })
+      )}
+
+      {/* UK Salaries */}
+      <Text style={styles.sectionLabel}>Salários UK — Dev Junior 2026</Text>
       <Card style={styles.salaryCard}>
         {[
-          { role: "Backend Java", salary: "£38k – £52k" },
-          { role: "Backend Go", salary: "£40k – £55k" },
-          { role: "Nest.js / Express", salary: "£35k – £48k" },
-          { role: "React / Next.js", salary: "£36k – £50k" },
-          { role: "Fullstack TS", salary: "£38k – £55k" },
+          { role: "Backend Java", range: "£38k – £52k" },
+          { role: "Backend Go", range: "£40k – £55k" },
+          { role: "Node.js / Express", range: "£35k – £48k" },
+          { role: "React / Next.js", range: "£36k – £50k" },
+          { role: "Fullstack TypeScript", range: "£38k – £55k" },
         ].map((item, i) => (
           <View key={i} style={[styles.salaryRow, i < 4 && styles.salaryRowBorder]}>
             <Text style={styles.salaryRole}>{item.role}</Text>
-            <Text style={styles.salaryAmount}>{item.salary}</Text>
+            <Text style={styles.salaryRange}>{item.range}</Text>
           </View>
         ))}
         <Pressable
-          style={styles.updateSalaryBtn}
-          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Atualize os salários médios para desenvolvedor junior em Londres 2026: backend Java, Go, Node.js, React, Fullstack TypeScript. Inclua média, mínimo e máximo em libras por ano." } })}
+          style={styles.updateBtn}
+          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Atualize os salários médios 2026 para desenvolvedor junior em Londres: Java, Go, Node.js, React, Fullstack TypeScript. Formato: cargo — salário mínimo, médio e máximo em libras por ano." } })}
         >
           <Feather name="refresh-cw" size={12} color={Colors.accent} />
-          <Text style={styles.updateSalaryText}>Atualizar via IA</Text>
+          <Text style={styles.updateBtnText}>Atualizar via IA</Text>
         </Pressable>
       </Card>
     </ScrollView>
@@ -180,54 +167,56 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16 },
   title: { fontSize: 28, fontFamily: "Inter_700Bold", color: Colors.text },
   subtitle: { fontSize: 13, color: Colors.textSecondary, fontFamily: "Inter_400Regular", marginBottom: 16, marginTop: 2 },
-  londonFeature: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 16, padding: 16, marginBottom: 20,
-    borderWidth: 1, borderColor: Colors.goldDim,
-  },
-  londonContent: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  londonFlag: { fontSize: 32 },
+  londonCard: { borderWidth: 1, borderColor: Colors.goldDim, marginBottom: 20 },
+  londonTop: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  londonFlag: { fontSize: 36 },
   londonTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.gold },
-  londonSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
-  londonRange: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.green, marginTop: 4 },
-  londonAiHint: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: Colors.goldDim + "44", borderRadius: 8, padding: 8,
+  londonSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 3 },
+  londonDays: { fontSize: 44, fontFamily: "Inter_700Bold", color: Colors.gold, letterSpacing: -2 },
+  londonDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginBottom: 12 },
+  londonBar: { marginBottom: 16 },
+  londonSteps: { gap: 12, marginBottom: 16 },
+  londonStep: { flexDirection: "row", alignItems: "flex-start" },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1, borderColor: Colors.goldDim, justifyContent: "center", alignItems: "center",
   },
-  londonAiText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.gold, flex: 1 },
-  sonhoCard: { marginBottom: 0 },
-  sonhoHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 12 },
-  sonhoColorDot: { width: 12, height: 12, borderRadius: 6, marginTop: 3 },
-  sonhoTitulo: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.text },
-  sonhoDesc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
-  progressRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  progressText: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 36, textAlign: "right" },
-  prazoText: { fontSize: 11, color: Colors.textTertiary, fontFamily: "Inter_400Regular", marginTop: 6 },
-  fasesContainer: { marginTop: 8 },
-  divider: { height: 1, backgroundColor: Colors.border, marginBottom: 14 },
-  faseItem: { marginBottom: 16 },
-  faseHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 8 },
-  faseBullet: {
-    width: 26, height: 26, borderRadius: 13,
-    justifyContent: "center", alignItems: "center",
-    borderWidth: 1, borderColor: Colors.border,
+  stepNumText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.gold },
+  stepLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
+  stepDesc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
+  londonAiBtn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: Colors.goldDim + "44", borderRadius: 8, padding: 10,
   },
-  faseBulletNum: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.textSecondary },
-  faseTitulo: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.text },
-  faseDesc: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 1 },
-  tarefaItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5, paddingLeft: 36 },
-  checkbox: {
-    width: 18, height: 18, borderRadius: 5, borderWidth: 1.5,
-    borderColor: Colors.textTertiary, justifyContent: "center", alignItems: "center",
+  londonAiBtnText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.gold },
+  goalsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  sectionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text, marginBottom: 10 },
+  addGoalBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: Colors.accentDim, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  tarefaText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.text, flex: 1 },
-  tarefaTextDone: { color: Colors.textTertiary, textDecorationLine: "line-through" },
-  sectionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text, marginBottom: 10, marginTop: 8 },
+  addGoalBtnText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.accent },
+  noGoalsCard: { alignItems: "center", paddingVertical: 30, gap: 10, marginBottom: 16 },
+  noGoalsTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.text },
+  noGoalsDesc: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, textAlign: "center", paddingHorizontal: 20 },
+  confirmBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 24, marginTop: 6 },
+  confirmBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  goalCard: {
+    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
+    marginBottom: 8, borderWidth: 1, borderColor: Colors.border,
+  },
+  goalHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  goalDot: { width: 8, height: 8, borderRadius: 4 },
+  goalTitulo: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
+  goalPct: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  goalBar: {},
+  goalPrazo: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 6 },
+  goalMilestones: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textTertiary, marginTop: 2 },
   salaryCard: { marginBottom: 16 },
   salaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
   salaryRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   salaryRole: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
-  salaryAmount: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.green },
-  updateSalaryBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, justifyContent: "center" },
-  updateSalaryText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.accent },
+  salaryRange: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.green },
+  updateBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, justifyContent: "center" },
+  updateBtnText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.accent },
 });
