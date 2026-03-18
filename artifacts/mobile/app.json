@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.devqueiroz01.mobile",
+      "bundleIdentifier": "com.user43245.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "backgroundColor": "#0A0A0F",
-      "package": "com.devqueiroz01.mobile"
+      "package": "com.user43245.mobile"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -45,8 +45,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "928c729c-00f6-4eea-955e-bd914c7511c7"
+        "projectId": "adddbecb-3de7-47f5-a291-ba5ff9806d20"
+      },
+      "router": {
+        "origin": "https://replit.com/"
       }
-    }
+    },
+    "owner": "user43245"
   }
 }
