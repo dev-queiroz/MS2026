@@ -5,8 +5,8 @@ const GROQ_KEY = "groq_api_key";
 const MODEL_KEY = "groq_model";
 
 export const GROQ_MODELS = [
-  { id: "llama3-70b-8192", label: "Llama 3 70B" },
-  { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
+  { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B" },
+  { id: "meta-llama/llama-prompt-guard-2-86m", label: "Llama Guard 2 86m" },
 ];
 
 interface SettingsContextType {
