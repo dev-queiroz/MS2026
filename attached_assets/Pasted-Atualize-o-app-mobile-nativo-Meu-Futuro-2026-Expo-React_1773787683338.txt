@@ -1,0 +1,36 @@
+Atualize o app mobile nativo "Meu Futuro 2026" (Expo + React Native) com as seguintes melhorias obrigatórias, mantendo tudo que já existe (dashboard, push notifications, fases Londres automáticas pela data 05/09/2026, finanças com câmbio, corpo 81kg, vida pessoal, freelance, etc.):
+
+1. Armazenamento: Troque TODOS os dados para expo-sqlite (baixa memória e armazenamento mínimo no celular). Export JSON para backup no PC continua.
+
+2. Remova QUALQUER dado mock ou sample. Todas as listas e telas começam 100% vazias. O usuário insere tudo.
+
+3. CRUD Matérias completo:
+   - Adicionar/editar/deletar matéria.
+   - Campo "Máx faltas permitidas" (padrão 2).
+   - Contador "Faltas atuais" com botões +1 e -1 (para corrigir erro).
+   - Lista de faltas registradas.
+
+4. Por matéria: CRUD de atividades/trabalhos/provas (ilimitados):
+   - Título, tipo (trabalho, prova, atividade, etc.), prazo (date picker), status.
+   - Lembretes push automáticos para prazos.
+
+5. Seção Goals SMART (nova ou substituindo trackers antigos):
+   - CRUD de objetivos com campos explícitos: Específica, Mensurável (com métrica e meta numérica), Alcançável, Relevante, Temporizada.
+   - Sugestões de títulos (mas sem dados pré-preenchidos): "Ficar fluente em inglês (B2/C1)", "Dev backend sênior em Java", "Dev fullstack sênior em TypeScript", "Dev backend sênior em Go", "Morar em Londres como programador", etc.
+   - Cada goal tem lista de milestones e progresso % editável pelo usuário.
+
+6. Seção Notas estilo Notion:
+   - CRUD de páginas (título + editor de texto markdown simples).
+   - Busca rápida.
+
+7. Chat com IA: Troque para Groq (api.groq.com).
+   - Tela de Configurações com campo para inserir API Key Groq (gratuita).
+   - Use fetch para https://api.groq.com/openai/v1/chat/completions.
+   - System prompt fixo: "Responda sempre em markdown simples e limpo: apenas parágrafos, listas com - ou números. NUNCA use **negrito**, ### headings ou tabelas."
+   - O app renderiza as respostas com react-native-markdown-display (suporte básico).
+
+8. Tudo pronto para uso imediato:
+   - Onboarding rápido para adicionar as 6 matérias atuais do 1º semestre (mas sem preencher nada).
+   - App abre direto no dashboard vazio para o usuário começar a gerenciar a vida agora.
+
+Mantenha tema dark, minimalista, mobile-first, push notifications funcionando, e interface 100% em português brasileiro. Atualize o código, gere novo preview QR code e confirme que o app está pronto para uso real.

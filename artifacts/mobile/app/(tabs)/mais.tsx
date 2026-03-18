@@ -14,37 +14,130 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, SECTION_COLORS } from "@/constants/colors";
-import { useAppData, type Freela } from "@/contexts/AppDataContext";
+import { useAppData } from "@/contexts/AppDataContext";
 import { Card } from "@/components/ui/Card";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Badge } from "@/components/ui/Badge";
 
-type Tab = "financas" | "saude" | "vida" | "freela";
+type Tab = "notas" | "financas" | "saude" | "freela";
 
+/* ─── Notas ─── */
+function NotasTab() {
+  const { notas, addNota, deleteNota } = useAppData();
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [novoTitulo, setNovoTitulo] = useState("");
+
+  const filtered = notas.filter(n =>
+    n.titulo.toLowerCase().includes(search.toLowerCase()) ||
+    n.conteudo.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAdd = async () => {
+    if (!novoTitulo.trim()) return;
+    const id = await addNota(novoTitulo.trim(), "");
+    setNovoTitulo(""); setAdding(false);
+    router.push({ pathname: "/nota-editor" as any, params: { id } });
+  };
+
+  return (
+    <View>
+      <View style={styles.notasHeader}>
+        <View style={styles.searchRow}>
+          <Feather name="search" size={16} color={Colors.textTertiary} style={{ marginLeft: 12 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar notas..."
+            placeholderTextColor={Colors.textTertiary}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <Pressable style={styles.addNotaBtn} onPress={() => setAdding(a => !a)}>
+          <Feather name={adding ? "x" : "plus"} size={18} color="#fff" />
+        </Pressable>
+      </View>
+
+      {adding && (
+        <View style={styles.addNotaForm}>
+          <TextInput
+            style={styles.addInput}
+            placeholder="Título da nota..."
+            placeholderTextColor={Colors.textTertiary}
+            value={novoTitulo}
+            onChangeText={setNovoTitulo}
+            autoFocus
+            onSubmitEditing={handleAdd}
+          />
+          <Pressable style={styles.confirmBtn} onPress={handleAdd}>
+            <Text style={styles.confirmBtnText}>Criar nota</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {filtered.length === 0 && (
+        <View style={styles.emptyState}>
+          <Feather name="file-text" size={40} color={Colors.textTertiary} />
+          <Text style={styles.emptyTitle}>
+            {search ? "Nenhuma nota encontrada" : "Nenhuma nota ainda"}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            Crie notas em formato Markdown para organizar seus estudos, ideias e anotações.
+          </Text>
+        </View>
+      )}
+
+      {filtered.map(nota => (
+        <Pressable
+          key={nota.id}
+          style={styles.notaCard}
+          onPress={() => router.push({ pathname: "/nota-editor" as any, params: { id: nota.id } })}
+          onLongPress={() => {
+            Alert.alert("Excluir nota", `Excluir "${nota.titulo}"?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Excluir", style: "destructive", onPress: () => deleteNota(nota.id) },
+            ]);
+          }}
+        >
+          <View style={styles.notaCardHeader}>
+            <Text style={styles.notaTitulo} numberOfLines={1}>{nota.titulo}</Text>
+            <Feather name="chevron-right" size={16} color={Colors.textTertiary} />
+          </View>
+          {nota.conteudo ? (
+            <Text style={styles.notaPreview} numberOfLines={2}>{nota.conteudo}</Text>
+          ) : (
+            <Text style={styles.notaPreviewEmpty}>Nota vazia — toque para editar</Text>
+          )}
+          <Text style={styles.notaDate}>
+            {new Date(nota.updatedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/* ─── Finanças ─── */
 function FinancasTab() {
-  const { data, addTransacao } = useAppData();
+  const { transacoes, addTransacao, deleteTransacao } = useAppData();
   const [adding, setAdding] = useState(false);
   const [tipo, setTipo] = useState<"entrada" | "saida">("saida");
   const [desc, setDesc] = useState("");
   const [valor, setValor] = useState("");
-  const [categoria, setCategoria] = useState("alimentação");
+  const [categoria, setCategoria] = useState("geral");
 
-  const saldo = data.transacoes.reduce(
-    (acc, t) => t.tipo === "entrada" ? acc + t.valor : acc - t.valor, 0
-  );
-  const entradas = data.transacoes.filter(t => t.tipo === "entrada").reduce((a, t) => a + t.valor, 0);
-  const saidas = data.transacoes.filter(t => t.tipo === "saida").reduce((a, t) => a + t.valor, 0);
+  const saldo = transacoes.reduce((acc, t) => t.tipo === "entrada" ? acc + t.valor : acc - t.valor, 0);
+  const entradas = transacoes.filter(t => t.tipo === "entrada").reduce((a, t) => a + t.valor, 0);
+  const saidas = transacoes.filter(t => t.tipo === "saida").reduce((a, t) => a + t.valor, 0);
 
   const handleAdd = async () => {
     if (!desc.trim() || !valor.trim()) return;
-    await addTransacao({ tipo, descricao: desc.trim(), valor: parseFloat(valor), categoria });
+    await addTransacao({ tipo, descricao: desc.trim(), valor: parseFloat(valor.replace(",", ".")), categoria });
     setDesc(""); setValor(""); setAdding(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   return (
     <View>
-      {/* Saldo */}
       <Card style={styles.saldoCard}>
         <Text style={styles.saldoLabel}>Saldo Total</Text>
         <Text style={[styles.saldoValue, { color: saldo >= 0 ? Colors.green : Colors.red }]}>
@@ -53,53 +146,26 @@ function FinancasTab() {
         <View style={styles.saldoRow}>
           <View style={styles.saldoItem}>
             <Feather name="arrow-up-circle" size={14} color={Colors.green} />
-            <Text style={styles.saldoItemText}>R$ {entradas.toFixed(2)}</Text>
+            <Text style={[styles.saldoItemVal, { color: Colors.green }]}>R${entradas.toFixed(2)}</Text>
             <Text style={styles.saldoItemLabel}>Entradas</Text>
           </View>
           <View style={styles.saldoItem}>
             <Feather name="arrow-down-circle" size={14} color={Colors.red} />
-            <Text style={[styles.saldoItemText, { color: Colors.red }]}>R$ {saidas.toFixed(2)}</Text>
+            <Text style={[styles.saldoItemVal, { color: Colors.red }]}>R${saidas.toFixed(2)}</Text>
             <Text style={styles.saldoItemLabel}>Saídas</Text>
           </View>
         </View>
       </Card>
 
-      {/* Currency Rates - via AI */}
-      <Pressable
-        style={styles.currencyCard}
-        onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Me dê as cotações atuais de: Dólar (USD), Euro (EUR), Libra (GBP), Franco Suíço (CHF) e Coroa Norueguesa (NOK) em relação ao Real brasileiro (BRL). Formato: moeda, símbolo, valor atual, variação do dia." } })}
-      >
-        <View style={styles.currencyHeader}>
-          <Text style={styles.currencyTitle}>💱 Cotações do Dia</Text>
-          <View style={styles.currencyAiBtn}>
-            <Feather name="cpu" size={12} color={Colors.accent} />
-            <Text style={styles.currencyAiText}>Atualizar via IA</Text>
-          </View>
-        </View>
-        {[
-          { symbol: "USD", name: "Dólar", flag: "🇺🇸", hint: "~R$5.20" },
-          { symbol: "GBP", name: "Libra", flag: "🇬🇧", hint: "~R$6.60" },
-          { symbol: "EUR", name: "Euro", flag: "🇪🇺", hint: "~R$5.70" },
-        ].map(c => (
-          <View key={c.symbol} style={styles.currencyItem}>
-            <Text style={styles.currencyFlag}>{c.flag}</Text>
-            <Text style={styles.currencyName}>{c.name}</Text>
-            <Text style={styles.currencyHint}>{c.hint}</Text>
-            <Text style={styles.currencySymbol}>{c.symbol}</Text>
-          </View>
-        ))}
-      </Pressable>
-
-      {/* Transações */}
       <View style={styles.transRow}>
         <Text style={styles.subLabel}>Transações</Text>
-        <Pressable onPress={() => setAdding(a => !a)} style={styles.addBtn}>
+        <Pressable style={styles.addBtn} onPress={() => setAdding(a => !a)}>
           <Feather name={adding ? "x" : "plus"} size={16} color={Colors.accent} />
         </Pressable>
       </View>
 
       {adding && (
-        <Card style={styles.addTransCard}>
+        <Card style={{ marginBottom: 12 }}>
           <View style={styles.tipoRow}>
             {(["entrada", "saida"] as const).map(t => (
               <Pressable
@@ -113,21 +179,28 @@ function FinancasTab() {
               </Pressable>
             ))}
           </View>
-          <TextInput style={styles.input} placeholder="Descrição..." placeholderTextColor={Colors.textTertiary}
-            value={desc} onChangeText={setDesc} />
-          <TextInput style={styles.input} placeholder="Valor (R$)..." placeholderTextColor={Colors.textTertiary}
-            value={valor} onChangeText={setValor} keyboardType="decimal-pad" />
+          <TextInput style={styles.addInput} placeholder="Descrição..." placeholderTextColor={Colors.textTertiary} value={desc} onChangeText={setDesc} />
+          <TextInput style={styles.addInput} placeholder="Valor (R$)..." placeholderTextColor={Colors.textTertiary} value={valor} onChangeText={setValor} keyboardType="decimal-pad" />
           <Pressable style={styles.confirmBtn} onPress={handleAdd}>
             <Text style={styles.confirmBtnText}>Adicionar</Text>
           </Pressable>
         </Card>
       )}
 
-      {data.transacoes.slice(-10).reverse().map(t => (
-        <View key={t.id} style={styles.transacaoItem}>
+      {transacoes.length === 0 && <Text style={styles.emptyText}>Nenhuma transação ainda.</Text>}
+      {transacoes.map(t => (
+        <Pressable
+          key={t.id}
+          style={styles.transacaoItem}
+          onLongPress={() => {
+            Alert.alert("Excluir", `Excluir "${t.descricao}"?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Excluir", style: "destructive", onPress: () => deleteTransacao(t.id) },
+            ]);
+          }}
+        >
           <View style={[styles.transIcon, { backgroundColor: t.tipo === "entrada" ? Colors.greenDim : Colors.redDim }]}>
-            <Feather name={t.tipo === "entrada" ? "arrow-up" : "arrow-down"} size={14}
-              color={t.tipo === "entrada" ? Colors.green : Colors.red} />
+            <Feather name={t.tipo === "entrada" ? "arrow-up" : "arrow-down"} size={14} color={t.tipo === "entrada" ? Colors.green : Colors.red} />
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.transDesc}>{t.descricao}</Text>
@@ -136,40 +209,48 @@ function FinancasTab() {
           <Text style={[styles.transValue, { color: t.tipo === "entrada" ? Colors.green : Colors.red }]}>
             {t.tipo === "entrada" ? "+" : "-"}R${t.valor.toFixed(2)}
           </Text>
-        </View>
+        </Pressable>
       ))}
-
-      {data.transacoes.length === 0 && (
-        <Text style={styles.emptyText}>Nenhuma transação ainda. Registre sua primeira!</Text>
-      )}
     </View>
   );
 }
 
+/* ─── Saúde ─── */
 function SaudeTab() {
-  const { data, addPeso, updateData } = useAppData();
+  const { pesos, addPeso } = useAppData();
   const [novoPeso, setNovoPeso] = useState("");
-  const pesoAtual = data.pesos.length > 0 ? data.pesos[data.pesos.length - 1].peso : 81;
-  const imc = parseFloat((81 / (1.79 * 1.79)).toFixed(1));
+
+  const pesoAtual = pesos.length > 0 ? pesos[pesos.length - 1].peso : null;
+  const pesoInicial = pesos.length > 0 ? pesos[0].peso : null;
 
   return (
     <View>
-      {/* Stats */}
-      <Card style={styles.saudeStatsCard}>
+      <Card style={{ marginBottom: 14 }}>
         <View style={styles.saudeRow}>
           <View style={styles.saudeItem}>
-            <Text style={styles.saudeValue}>{pesoAtual}kg</Text>
+            <Text style={[styles.saudeValue, { color: Colors.orange }]}>{pesoAtual ? `${pesoAtual}kg` : "--"}</Text>
             <Text style={styles.saudeLabel}>Peso atual</Text>
           </View>
           <View style={styles.saudeItem}>
             <Text style={styles.saudeValue}>1,79m</Text>
             <Text style={styles.saudeLabel}>Altura</Text>
           </View>
-          <View style={styles.saudeItem}>
-            <Text style={[styles.saudeValue, { color: Colors.gold }]}>{imc}</Text>
-            <Text style={styles.saudeLabel}>IMC</Text>
-          </View>
+          {pesoAtual && (
+            <View style={styles.saudeItem}>
+              <Text style={[styles.saudeValue, { color: Colors.gold }]}>
+                {(pesoAtual / (1.79 * 1.79)).toFixed(1)}
+              </Text>
+              <Text style={styles.saudeLabel}>IMC</Text>
+            </View>
+          )}
         </View>
+
+        {pesoInicial && pesoAtual && pesoInicial !== pesoAtual && (
+          <Text style={[styles.pesoChange, { color: pesoAtual < pesoInicial ? Colors.green : Colors.orange }]}>
+            {pesoAtual < pesoInicial ? "▼" : "▲"} {Math.abs(pesoAtual - pesoInicial).toFixed(1)}kg desde o início
+          </Text>
+        )}
+
         <View style={styles.pesoInputRow}>
           <TextInput
             style={styles.pesoInput}
@@ -182,8 +263,9 @@ function SaudeTab() {
           <Pressable
             style={styles.pesoAddBtn}
             onPress={async () => {
-              if (novoPeso.trim()) {
-                await addPeso(parseFloat(novoPeso));
+              const v = parseFloat(novoPeso.replace(",", "."));
+              if (v > 0) {
+                await addPeso(v);
                 setNovoPeso("");
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
@@ -194,93 +276,35 @@ function SaudeTab() {
         </View>
       </Card>
 
-      {/* Treinos */}
-      <Text style={styles.subLabel}>Planner de Treinos (Bodyweight)</Text>
-      {data.treinos.map(treino => (
-        <Card key={treino.id} style={[styles.treinoCard, { marginBottom: 10 }]}>
-          <View style={styles.treinoHeader}>
-            <View style={[styles.treinoIcon, { backgroundColor: SECTION_COLORS.saude.dim }]}>
-              <Feather name="activity" size={16} color={SECTION_COLORS.saude.main} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.treinoName}>{treino.nome}</Text>
-              <Text style={styles.treinoDias}>
-                {treino.diasSemana.map(d => ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][d]).join(" • ")}
-              </Text>
-            </View>
-            <Badge label={`${treino.exercicios.length} exerc.`} size="sm" />
-          </View>
-          {treino.exercicios.map((ex, i) => (
-            <View key={ex.id} style={[styles.exercicioItem, i < treino.exercicios.length - 1 && styles.exercicioItemBorder]}>
-              <Text style={styles.exercicioName}>{ex.exercicio}</Text>
-              <Text style={styles.exercicioSeries}>{ex.series}x{ex.reps}</Text>
-            </View>
-          ))}
-        </Card>
-      ))}
-
       <Pressable
         style={styles.aiTreinoBtn}
-        onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um plano de treino bodyweight em casa para mim: 17 anos, 81kg, 1,79m, objetivo de reduzir gordura e ganhar massa muscular. Sem equipamentos. Dieta barata brasileira (arroz, feijão, ovo, frango, banana). Inclua séries, repetições e dicas de alimentação." } })}
+        onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um plano de treino bodyweight completo para mim: 17 anos, 81kg, 1,79m, sem equipamentos. Inclua aquecimento, exercícios, séries, reps e dicas de alimentação barata." } })}
       >
         <Feather name="cpu" size={14} color={Colors.accent} />
-        <Text style={styles.aiTreinoBtnText}>Gerar plano personalizado com IA</Text>
+        <Text style={styles.aiTreinoBtnText}>Gerar plano de treino personalizado com IA</Text>
       </Pressable>
+
+      {pesos.length > 1 && (
+        <View>
+          <Text style={[styles.subLabel, { marginTop: 12 }]}>Histórico de peso</Text>
+          {pesos.slice(-5).reverse().map(p => (
+            <View key={p.id} style={styles.pesoHistItem}>
+              <Text style={styles.pesoHistData}>{new Date(p.data).toLocaleDateString("pt-BR")}</Text>
+              <Text style={styles.pesoHistVal}>{p.peso}kg</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
-function VidaTab() {
-  const lembretes = [
-    { id: "1", icon: "sun", titulo: "Missa", desc: "Todo domingo", cor: Colors.purple, tipo: "recorrente" },
-    { id: "2", icon: "github", titulo: "Post no GitHub", desc: "Semanal - commit ou artigo", cor: Colors.accent, tipo: "semanal" },
-    { id: "3", icon: "linkedin", titulo: "Networking LinkedIn", desc: "Conectar 3 devs esta semana", cor: Colors.teal, tipo: "semanal" },
-    { id: "4", icon: "music", titulo: "Música", desc: "30 min diários", cor: Colors.pink, tipo: "diário" },
-    { id: "5", icon: "book-open", titulo: "Leitura", desc: "20 min diários", cor: Colors.gold, tipo: "diário" },
-    { id: "6", icon: "smartphone", titulo: "Jogos / Lazer", desc: "1h diária (equilíbrio)", cor: Colors.green, tipo: "diário" },
-  ];
-
-  return (
-    <View>
-      <Text style={styles.subLabel}>Lembretes de Vida</Text>
-      {lembretes.map(l => (
-        <Card key={l.id} style={[styles.vidaCard, { marginBottom: 8 }]} accentColor={l.cor}>
-          <View style={styles.vidaHeader}>
-            <View style={[styles.vidaIcon, { backgroundColor: l.cor + "22" }]}>
-              <Feather name={l.icon as any} size={18} color={l.cor} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.vidaTitulo}>{l.titulo}</Text>
-              <Text style={styles.vidaDesc}>{l.desc}</Text>
-            </View>
-            <Badge label={l.tipo} color={l.cor + "22"} textColor={l.cor} size="sm" />
-          </View>
-        </Card>
-      ))}
-
-      <Card style={styles.networkingCard}>
-        <Text style={styles.networkingTitle}>🤝 Networking Esta Semana</Text>
-        {[
-          "Conectar 3 devs no LinkedIn",
-          "Mensagem para alumni UFC",
-          "Comentar em 2 posts tech",
-        ].map((item, i) => (
-          <View key={i} style={styles.networkingItem}>
-            <Feather name="arrow-right" size={12} color={Colors.teal} />
-            <Text style={styles.networkingText}>{item}</Text>
-          </View>
-        ))}
-      </Card>
-    </View>
-  );
-}
-
+/* ─── Freela ─── */
 function FreelaTab() {
-  const { data, addFreela, updateFreela } = useAppData();
+  const { freelas, addFreela, updateFreela, deleteFreela } = useAppData();
   const [adding, setAdding] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [plataforma, setPlataforma] = useState("Upwork");
-  const [desc, setDesc] = useState("");
 
   const STATUS_COLORS: Record<string, string> = {
     prospectando: Colors.textSecondary,
@@ -289,37 +313,26 @@ function FreelaTab() {
     fechado: Colors.green,
     concluido: Colors.purple,
   };
-
   const STATUS_LABELS: Record<string, string> = {
     prospectando: "Prospectando",
-    enviado: "Proposta enviada",
+    enviado: "Enviado",
     negociando: "Negociando",
     fechado: "Fechado",
     concluido: "Concluído",
   };
-
   const PLATAFORMAS = ["Upwork", "Fiverr", "99Freelas", "LinkedIn", "Direto"];
-
-  const handleAdd = async () => {
-    if (!titulo.trim()) return;
-    await addFreela({ titulo: titulo.trim(), plataforma, status: "prospectando", descricao: desc.trim(), notas: "" });
-    setTitulo(""); setDesc(""); setAdding(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
 
   return (
     <View>
-      {/* Checklist Primeiro Freela */}
       <Card style={styles.primeiroFreelaCard}>
-        <Text style={styles.primeiroFreelaTitle}>🎯 Primeiro Freela Este Mês</Text>
-        <Text style={styles.primeiroFreelaSub}>Checklist para conseguir o primeiro cliente</Text>
+        <Text style={styles.primeiroFreelaTitle}>🎯 Primeiro Freela</Text>
         {[
-          "Perfil Upwork/Fiverr completo",
-          "Portfolio com 2+ projetos",
-          "Definir nicho (ex: landing pages em React)",
-          "Proposta em inglês pronta",
-          "Preço inicial: $50-150 (projeto pequeno)",
-          "Aplicar para 5 vagas por dia",
+          "Perfil Upwork/Fiverr 100% completo",
+          "Portfolio com 2+ projetos no GitHub",
+          "Definir nicho (ex: landing pages React)",
+          "Template de proposta em inglês",
+          "Preço inicial: $50–150 (projeto pequeno)",
+          "Aplicar 5 vagas por dia",
         ].map((item, i) => (
           <View key={i} style={styles.checklistItem}>
             <Feather name="check-circle" size={14} color={Colors.gold} />
@@ -328,63 +341,67 @@ function FreelaTab() {
         ))}
         <Pressable
           style={styles.aiPropBtn}
-          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um template de proposta para Upwork em inglês para um desenvolvedor junior de 17 anos especializado em React/TypeScript e Java. Inclua: apresentação, experiência, por que me contratar, e preço inicial sugerido." } })}
+          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um template de proposta para Upwork em inglês para desenvolvedor React/TypeScript e Java de 17 anos. Inclua: apresentação, habilidades, por que me contratar, preço inicial sugerido." } })}
         >
           <Feather name="cpu" size={13} color={Colors.gold} />
-          <Text style={styles.aiPropBtnText}>Gerar template de proposta com IA</Text>
+          <Text style={styles.aiPropBtnText}>Gerar proposta com IA</Text>
         </Pressable>
       </Card>
 
-      {/* Add Freela */}
       <View style={styles.transRow}>
-        <Text style={styles.subLabel}>Meus Freelas</Text>
-        <Pressable onPress={() => setAdding(a => !a)} style={styles.addBtn}>
+        <Text style={styles.subLabel}>Pipeline de freelas</Text>
+        <Pressable style={styles.addBtn} onPress={() => setAdding(a => !a)}>
           <Feather name={adding ? "x" : "plus"} size={16} color={Colors.accent} />
         </Pressable>
       </View>
 
       {adding && (
-        <Card style={styles.addTransCard}>
-          <TextInput style={styles.input} placeholder="Nome do freela..." placeholderTextColor={Colors.textTertiary}
-            value={titulo} onChangeText={setTitulo} />
-          <TextInput style={styles.input} placeholder="Descrição..." placeholderTextColor={Colors.textTertiary}
-            value={desc} onChangeText={setDesc} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+        <Card style={{ marginBottom: 10 }}>
+          <TextInput style={styles.addInput} placeholder="Nome do freela..." placeholderTextColor={Colors.textTertiary} value={titulo} onChangeText={setTitulo} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
             {PLATAFORMAS.map(p => (
-              <Pressable
-                key={p}
-                style={[styles.platBtn, plataforma === p && styles.platBtnActive]}
-                onPress={() => setPlataforma(p)}
-              >
-                <Text style={[styles.platBtnText, plataforma === p && styles.platBtnTextActive]}>{p}</Text>
+              <Pressable key={p} style={[styles.platChip, plataforma === p && styles.platChipActive]} onPress={() => setPlataforma(p)}>
+                <Text style={[styles.platChipText, plataforma === p && { color: "#fff" }]}>{p}</Text>
               </Pressable>
             ))}
           </ScrollView>
-          <Pressable style={styles.confirmBtn} onPress={handleAdd}>
-            <Text style={styles.confirmBtnText}>Adicionar Freela</Text>
+          <Pressable style={styles.confirmBtn} onPress={async () => {
+            if (!titulo.trim()) return;
+            await addFreela({ titulo: titulo.trim(), plataforma });
+            setTitulo(""); setAdding(false);
+          }}>
+            <Text style={styles.confirmBtnText}>Adicionar</Text>
           </Pressable>
         </Card>
       )}
 
-      {data.freelas.length === 0 && (
-        <Text style={styles.emptyText}>Nenhum freela ainda. Vamos começar!</Text>
-      )}
+      {freelas.length === 0 && <Text style={styles.emptyText}>Nenhum freela ainda. Vamos começar!</Text>}
 
-      {data.freelas.map(f => (
-        <Card key={f.id} style={{ marginBottom: 10 }}>
-          <View style={styles.freealaHeader}>
+      {freelas.map(f => (
+        <Card key={f.id} style={{ marginBottom: 8 }}>
+          <View style={styles.freelaHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.freealaTitle}>{f.titulo}</Text>
-              <Text style={styles.freealaPlatform}>{f.plataforma}</Text>
+              <Text style={styles.freelalTitulo}>{f.titulo}</Text>
+              <Text style={styles.freelalPlat}>{f.plataforma}</Text>
             </View>
-            <Badge
-              label={STATUS_LABELS[f.status]}
-              color={STATUS_COLORS[f.status] + "22"}
-              textColor={STATUS_COLORS[f.status]}
-              size="sm"
-            />
+            <View style={styles.freelaRight}>
+              <Badge
+                label={STATUS_LABELS[f.status] ?? f.status}
+                color={STATUS_COLORS[f.status] + "22"}
+                textColor={STATUS_COLORS[f.status]}
+                size="sm"
+              />
+              <Pressable onPress={() => {
+                Alert.alert("Excluir", `Excluir "${f.titulo}"?`, [
+                  { text: "Cancelar", style: "cancel" },
+                  { text: "Excluir", style: "destructive", onPress: () => deleteFreela(f.id) },
+                ]);
+              }}>
+                <Feather name="trash-2" size={14} color={Colors.textTertiary} />
+              </Pressable>
+            </View>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
             {(["prospectando", "enviado", "negociando", "fechado", "concluido"] as const).map(s => (
               <Pressable
                 key={s}
@@ -405,30 +422,25 @@ function FreelaTab() {
 
 export default function MaisScreen() {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<Tab>("freela");
+  const [activeTab, setActiveTab] = useState<Tab>("notas");
   const isWeb = Platform.OS === "web";
 
   const TABS: { id: Tab; label: string; icon: string; color: string }[] = [
+    { id: "notas", label: "Notas", icon: "file-text", color: Colors.purple },
     { id: "freela", label: "Freela", icon: "briefcase", color: SECTION_COLORS.freela.main },
     { id: "financas", label: "Finanças", icon: "dollar-sign", color: SECTION_COLORS.financas.main },
     { id: "saude", label: "Saúde", icon: "activity", color: SECTION_COLORS.saude.main },
-    { id: "vida", label: "Vida", icon: "heart", color: SECTION_COLORS.vida.main },
   ];
 
   return (
     <View style={styles.container}>
       <View style={[styles.topHeader, { paddingTop: insets.top + (isWeb ? 67 : 0) + 12 }]}>
         <Text style={styles.title}>Mais</Text>
-        <Pressable
-          style={styles.aiHeaderBtn}
-          onPress={() => router.push("/chat")}
-        >
-          <Feather name="cpu" size={18} color={Colors.accent} />
-          <Text style={styles.aiHeaderText}>IA</Text>
+        <Pressable style={styles.aiHeaderBtn} onPress={() => router.push("/chat")}>
+          <Feather name="cpu" size={16} color={Colors.accent} />
         </Pressable>
       </View>
 
-      {/* Tab Bar */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -448,15 +460,12 @@ export default function MaisScreen() {
       </ScrollView>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: (isWeb ? 34 : 0) + 100 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: (isWeb ? 34 : 0) + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {activeTab === "notas" && <NotasTab />}
         {activeTab === "financas" && <FinancasTab />}
         {activeTab === "saude" && <SaudeTab />}
-        {activeTab === "vida" && <VidaTab />}
         {activeTab === "freela" && <FreelaTab />}
       </ScrollView>
     </View>
@@ -467,92 +476,132 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   topHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 8 },
   title: { fontSize: 28, fontFamily: "Inter_700Bold", color: Colors.text },
-  aiHeaderBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.surfaceElevated, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
-  aiHeaderText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.accent },
+  aiHeaderBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.accentDim, justifyContent: "center", alignItems: "center",
+  },
   tabBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabBarContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  tabBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 99, backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border },
+  tabBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 99,
+    backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border,
+  },
   tabBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   subLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text, marginBottom: 10 },
-  // Financas
-  saldoCard: { marginBottom: 16, backgroundColor: Colors.surfaceElevated },
+  // Notas
+  notasHeader: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  searchRow: {
+    flex: 1, flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.surfaceElevated, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  searchInput: {
+    flex: 1, color: Colors.text, fontFamily: "Inter_400Regular",
+    fontSize: 13, paddingHorizontal: 10, paddingVertical: 10,
+  },
+  addNotaBtn: {
+    width: 42, height: 42, borderRadius: 10,
+    backgroundColor: Colors.accent, justifyContent: "center", alignItems: "center",
+  },
+  addNotaForm: { marginBottom: 12 },
+  notaCard: {
+    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
+    marginBottom: 8, borderWidth: 1, borderColor: Colors.border,
+  },
+  notaCardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  notaTitulo: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.text, flex: 1 },
+  notaPreview: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, lineHeight: 18 },
+  notaPreviewEmpty: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textTertiary, fontStyle: "italic" },
+  notaDate: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textTertiary, marginTop: 8 },
+  emptyState: { alignItems: "center", paddingVertical: 40, gap: 10 },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.text },
+  emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary, textAlign: "center", paddingHorizontal: 20 },
+  emptyText: { fontSize: 13, color: Colors.textTertiary, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+  // Finanças
+  saldoCard: { marginBottom: 14 },
   saldoLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textSecondary, marginBottom: 4 },
-  saldoValue: { fontSize: 36, fontFamily: "Inter_700Bold" },
-  saldoRow: { flexDirection: "row", gap: 20, marginTop: 12 },
+  saldoValue: { fontSize: 34, fontFamily: "Inter_700Bold" },
+  saldoRow: { flexDirection: "row", gap: 24, marginTop: 12 },
   saldoItem: { gap: 2 },
-  saldoItemText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.green },
+  saldoItemVal: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   saldoItemLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
-  currencyCard: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
-  currencyHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  currencyTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
-  currencyAiBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
-  currencyAiText: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.accent },
-  currencyItem: { flexDirection: "row", alignItems: "center", paddingVertical: 7, borderTopWidth: 1, borderTopColor: Colors.border },
-  currencyFlag: { fontSize: 20, marginRight: 8 },
-  currencyName: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.text, flex: 1 },
-  currencyHint: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.green, marginRight: 8 },
-  currencySymbol: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textTertiary },
   transRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  addBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceElevated, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: Colors.border },
-  addTransCard: { marginBottom: 12 },
-  tipoRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  tipoBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.surfaceElevated, alignItems: "center", borderWidth: 1, borderColor: Colors.border },
+  addBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.surfaceElevated, justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  tipoRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+  tipoBtn: {
+    flex: 1, paddingVertical: 8, borderRadius: 8,
+    backgroundColor: Colors.surfaceElevated, alignItems: "center",
+    borderWidth: 1, borderColor: Colors.border,
+  },
   tipoBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
-  input: { backgroundColor: Colors.surfaceElevated, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text, fontFamily: "Inter_400Regular", fontSize: 13, borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },
-  confirmBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  confirmBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
   transacaoItem: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   transIcon: { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
   transDesc: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.text },
   transDate: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
   transValue: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  emptyText: { fontSize: 13, color: Colors.textTertiary, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   // Saúde
-  saudeStatsCard: { marginBottom: 16 },
-  saudeRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 16 },
+  saudeRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 14 },
   saudeItem: { alignItems: "center" },
-  saudeValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.orange },
+  saudeValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.text },
   saudeLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
+  pesoChange: { fontSize: 13, fontFamily: "Inter_500Medium", textAlign: "center", marginBottom: 12 },
   pesoInputRow: { flexDirection: "row", gap: 10 },
-  pesoInput: { flex: 1, backgroundColor: Colors.surfaceElevated, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text, fontFamily: "Inter_400Regular", fontSize: 13, borderWidth: 1, borderColor: Colors.border },
+  pesoInput: {
+    flex: 1, backgroundColor: Colors.surfaceElevated, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10, color: Colors.text,
+    fontFamily: "Inter_400Regular", fontSize: 14, borderWidth: 1, borderColor: Colors.border,
+  },
   pesoAddBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.orange, justifyContent: "center", alignItems: "center" },
-  treinoCard: {},
-  treinoHeader: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  treinoIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  treinoName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
-  treinoDias: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
-  exercicioItem: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7 },
-  exercicioItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  exercicioName: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.text, flex: 1 },
-  exercicioSeries: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.orange },
-  aiTreinoBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.surfaceElevated, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: Colors.border },
+  aiTreinoBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: Colors.surfaceElevated, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 8,
+  },
   aiTreinoBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.accent },
-  // Vida
-  vidaCard: {},
-  vidaHeader: { flexDirection: "row", alignItems: "center" },
-  vidaIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: "center", alignItems: "center" },
-  vidaTitulo: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text, flex: 1, marginLeft: 12 },
-  vidaDesc: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginLeft: 12 },
-  networkingCard: { marginTop: 8, marginBottom: 16 },
-  networkingTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text, marginBottom: 10 },
-  networkingItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
-  networkingText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
+  pesoHistItem: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  pesoHistData: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
+  pesoHistVal: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.orange },
   // Freela
-  primeiroFreelaCard: { marginBottom: 16, borderWidth: 1, borderColor: Colors.goldDim, backgroundColor: Colors.surfaceElevated },
-  primeiroFreelaTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.gold, marginBottom: 4 },
-  primeiroFreelaSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginBottom: 12 },
-  checklistItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
+  primeiroFreelaCard: {
+    backgroundColor: Colors.surfaceElevated, borderRadius: 12, padding: 14,
+    marginBottom: 16, borderWidth: 1, borderColor: Colors.goldDim,
+  },
+  primeiroFreelaTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.gold, marginBottom: 10 },
+  checklistItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
   checklistText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.text, flex: 1 },
-  aiPropBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, paddingVertical: 10, backgroundColor: Colors.goldDim + "44", borderRadius: 8 },
+  aiPropBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    marginTop: 10, paddingVertical: 9, backgroundColor: Colors.goldDim + "44", borderRadius: 8,
+  },
   aiPropBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.gold },
-  freealaHeader: { flexDirection: "row", alignItems: "flex-start" },
-  freealaTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
-  freealaPlatform: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary, marginTop: 2 },
-  platBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border, marginRight: 6 },
-  platBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  platBtnText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
-  platBtnTextActive: { color: "#fff" },
-  statusBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99, backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border, marginRight: 6 },
+  freelaHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  freelaRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  freelalTitulo: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.text },
+  freelalPlat: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary },
+  platChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99,
+    backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border, marginRight: 6,
+  },
+  platChipActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  platChipText: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
+  statusBtn: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99,
+    backgroundColor: Colors.surfaceElevated, borderWidth: 1, borderColor: Colors.border, marginRight: 6,
+  },
   statusBtnText: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.textSecondary },
+  // Common
+  addInput: {
+    backgroundColor: Colors.surfaceElevated, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 11, color: Colors.text,
+    fontFamily: "Inter_400Regular", fontSize: 14,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 10,
+  },
+  confirmBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  confirmBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });

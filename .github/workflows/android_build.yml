@@ -2,7 +2,6 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -11,16 +10,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4 # Atualizado para v4
-        with:
-          version: 9 # Mudamos para a versão 9 para suportar Catalogs (@catalog:)
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # Recomendado para pnpm 9 e projetos React Native atuais
-          cache: 'pnpm'
+          node-version: 18
+          cache: 'npm'
+          # Adicionamos o caminho do package.json para o cache funcionar
+          cache-dependency-path: artifacts/mobile/package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -29,10 +25,13 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        # Adicionamos --no-frozen-lockfile caso o lockfile precise de um pequeno ajuste automático na nuvem
-        run: pnpm install --no-frozen-lockfile
+        # Mudamos para a pasta correta antes de instalar
+        run: |
+          cd artifacts/mobile
+          npm install
 
       - name: Build Android APK
+        # Entramos na pasta mobile e depois na android para rodar o gradle
         run: |
           cd artifacts/mobile/android
           chmod +x gradlew
@@ -42,4 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
+          # O caminho do arquivo final também muda
           path: artifacts/mobile/android/app/build/outputs/apk/debug/app-debug.apk

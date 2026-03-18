@@ -14,10 +14,15 @@
       "backgroundColor": "#0A0A0F"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.user43245.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "backgroundColor": "#0A0A0F"
+      "backgroundColor": "#0A0A0F",
+      "package": "com.user43245.mobile"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -30,11 +35,22 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "adddbecb-3de7-47f5-a291-ba5ff9806d20"
+      },
+      "router": {
+        "origin": "https://replit.com/"
+      }
+    },
+    "owner": "user43245"
   }
 }
