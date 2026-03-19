@@ -1,3 +1,4 @@
+
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -8,10 +9,14 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/colors";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
@@ -20,11 +25,72 @@ const LONDON_DATE = new Date("2026-09-05");
 export default function SonhosScreen() {
   const insets = useSafeAreaInsets();
   const { goals } = useAppData();
+  const { groqApiKey, groqModel } = useSettings();
   const isWeb = Platform.OS === "web";
 
   const diasLondres = Math.max(0, Math.ceil((LONDON_DATE.getTime() - Date.now()) / 86400000));
   const totalDias = 365;
   const londonProgress = Math.min(100, Math.round(((totalDias - diasLondres) / totalDias) * 100));
+
+  const [salaries, setSalaries] = React.useState<{ role: string; range: string }[]>([
+    { role: "Backend Java", range: "£38k – £52k" },
+    { role: "Backend Go", range: "£40k – £55k" },
+    { role: "Node.js / Express", range: "£35k – £48k" },
+    { role: "React / Next.js", range: "£36k – £50k" },
+    { role: "Fullstack TypeScript", range: "£38k – £55k" },
+  ]);
+  const [updatingSalaries, setUpdatingSalaries] = React.useState(false);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem("uk_salaries").then(s => {
+      if (s) {
+        try { setSalaries(JSON.parse(s)); } catch { }
+      }
+    });
+  }, []);
+
+  async function updateSalariesScraping() {
+    setUpdatingSalaries(true);
+    try {
+      const urls = {
+        "Backend Java": "https://www.itjobswatch.co.uk/jobs/london/java.do",
+        "Backend Go": "https://www.itjobswatch.co.uk/jobs/london/golang.do",
+        "Node.js / Express": "https://www.itjobswatch.co.uk/jobs/london/node.js.do",
+        "React / Next.js": "https://www.itjobswatch.co.uk/jobs/london/react.do",
+        "Fullstack TypeScript": "https://www.itjobswatch.co.uk/jobs/london/typescript.do"
+      };
+
+      const updated = [];
+      for (const [role, url] of Object.entries(urls)) {
+        try {
+          const resp = await fetch(url);
+          const html = await resp.text();
+          // Even more resilient regex: find "Median Salary" then the next occurrence of £/&#163; and digits
+          const match = html.match(/Median\s*Salary[\s\S]*?(?:&#163;|£)([\d,]+)/i);
+          if (match && match[1]) {
+            updated.push({ role, range: `£${match[1]} (Mediana)` });
+          } else {
+            // Fallback: simply find the first pound value that looks like a salary in a fig cell
+            const fallbackMatch = html.match(/<td class="fig">(?:&#163;|&#x00A3;|£)([\d,]{4,10})<\/td>/i);
+            if (fallbackMatch && fallbackMatch[1]) {
+              updated.push({ role, range: `£${fallbackMatch[1]} (Mediana)` });
+            } else {
+              updated.push({ role, range: "N/A" });
+            }
+          }
+        } catch (e) {
+          updated.push({ role, range: "N/A" });
+        }
+      }
+
+      setSalaries(updated);
+      AsyncStorage.setItem("uk_salaries", JSON.stringify(updated)).catch(()=>{});
+    } catch(e) {
+      Alert.alert("Erro", "Falha ao escanear salários via ItJobsWatch.");
+    } finally {
+      setUpdatingSalaries(false);
+    }
+  }
 
   return (
     <ScrollView
@@ -138,24 +204,23 @@ export default function SonhosScreen() {
       {/* UK Salaries */}
       <Text style={styles.sectionLabel}>Salários UK — Dev Junior 2026</Text>
       <Card style={styles.salaryCard}>
-        {[
-          { role: "Backend Java", range: "£38k – £52k" },
-          { role: "Backend Go", range: "£40k – £55k" },
-          { role: "Node.js / Express", range: "£35k – £48k" },
-          { role: "React / Next.js", range: "£36k – £50k" },
-          { role: "Fullstack TypeScript", range: "£38k – £55k" },
-        ].map((item, i) => (
-          <View key={i} style={[styles.salaryRow, i < 4 && styles.salaryRowBorder]}>
+        {salaries.map((item, i) => (
+          <View key={i} style={[styles.salaryRow, i < salaries.length - 1 && styles.salaryRowBorder]}>
             <Text style={styles.salaryRole}>{item.role}</Text>
             <Text style={styles.salaryRange}>{item.range}</Text>
           </View>
         ))}
         <Pressable
-          style={styles.updateBtn}
-          onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Atualize os salários médios 2026 para desenvolvedor junior em Londres: Java, Go, Node.js, React, Fullstack TypeScript. Formato: cargo — salário mínimo, médio e máximo em libras por ano." } })}
+          style={[styles.updateBtn, updatingSalaries && { opacity: 0.5 }]}
+          onPress={updatingSalaries ? undefined : updateSalariesScraping}
+          disabled={updatingSalaries}
         >
-          <Feather name="refresh-cw" size={12} color={Colors.accent} />
-          <Text style={styles.updateBtnText}>Atualizar via IA</Text>
+          {updatingSalaries ? (
+            <ActivityIndicator size="small" color={Colors.accent} />
+          ) : (
+            <Feather name="refresh-cw" size={12} color={Colors.accent} />
+          )}
+          <Text style={styles.updateBtnText}>{updatingSalaries ? "Buscando dados no ITJobsWatch..." : "Atualizar via ITJobsWatch"}</Text>
         </Pressable>
       </Card>
     </ScrollView>

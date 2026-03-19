@@ -11,12 +11,16 @@ import {
   Text,
   TextInput,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, SECTION_COLORS } from "@/constants/colors";
 import { useAppData } from "@/contexts/AppDataContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
 type Tab = "notas" | "financas" | "saude" | "freela";
 
@@ -217,83 +221,198 @@ function FinancasTab() {
 
 /* ─── Saúde ─── */
 function SaudeTab() {
-  const { pesos, addPeso } = useAppData();
+  const { pesos, addPeso, addNota, notas } = useAppData();
+  const { groqApiKey, groqModel } = useSettings();
+  const [subTab, setSubTab] = useState<"geral" | "treinos">("geral");
   const [novoPeso, setNovoPeso] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [agua, setAgua] = useState(0);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  React.useEffect(() => {
+    AsyncStorage.getItem(`agua_${todayStr}`).then(val => {
+      if (val) setAgua(parseInt(val));
+    });
+  }, []);
+
+  const handleAddAgua = (amount: number) => {
+    const newVal = agua + amount;
+    setAgua(newVal);
+    AsyncStorage.setItem(`agua_${todayStr}`, newVal.toString()).catch(()=>{});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  async function generateTrainingPlan() {
+    if (!groqApiKey) {
+      Alert.alert("Erro", "Configure a API Key da Groq nas configurações primeiro.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
+        body: JSON.stringify({
+          model: groqModel,
+          stream: false,
+          messages: [
+            { role: "system", content: "Você é um personal trainer. Responda APENAS com o plano formatado em Markdown limpo." },
+            { role: "user", content: "Crie um plano de treino bodyweight semanal: 17 anos a focar em hipertrofia. Inclua dicas de dieta." }
+          ],
+        }),
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+      const json = await response.json();
+      const content = json.choices?.[0]?.message?.content || "";
+      await addNota("Treino Bodyweight (Gerado por IA)", content);
+      Alert.alert("Pronto!", "Plano gerado e salvo estruturalmente na aba Notas!");
+    } catch(e) {
+      Alert.alert("Erro", "Falha ao gerar treino pela IA.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const pesoAtual = pesos.length > 0 ? pesos[pesos.length - 1].peso : null;
   const pesoInicial = pesos.length > 0 ? pesos[0].peso : null;
+  const treinos = notas.filter(n => n.titulo.toLowerCase().includes("treino") || n.conteudo.toLowerCase().includes("treino"));
 
   return (
     <View>
-      <Card style={{ marginBottom: 14 }}>
-        <View style={styles.saudeRow}>
-          <View style={styles.saudeItem}>
-            <Text style={[styles.saudeValue, { color: Colors.orange }]}>{pesoAtual ? `${pesoAtual}kg` : "--"}</Text>
-            <Text style={styles.saudeLabel}>Peso atual</Text>
-          </View>
-          <View style={styles.saudeItem}>
-            <Text style={styles.saudeValue}>1,79m</Text>
-            <Text style={styles.saudeLabel}>Altura</Text>
-          </View>
-          {pesoAtual && (
-            <View style={styles.saudeItem}>
-              <Text style={[styles.saudeValue, { color: Colors.gold }]}>
-                {(pesoAtual / (1.79 * 1.79)).toFixed(1)}
+      <View style={{ flexDirection: "row", backgroundColor: Colors.surfaceElevated, borderRadius: 10, padding: 4, marginBottom: 16 }}>
+        <Pressable style={{ flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8, backgroundColor: subTab === "geral" ? Colors.surface : "transparent" }} onPress={() => setSubTab("geral")}>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: subTab === "geral" ? Colors.text : Colors.textSecondary }}>Geral</Text>
+        </Pressable>
+        <Pressable style={{ flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8, backgroundColor: subTab === "treinos" ? Colors.surface : "transparent" }} onPress={() => setSubTab("treinos")}>
+          <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: subTab === "treinos" ? Colors.text : Colors.textSecondary }}>Academia</Text>
+        </Pressable>
+      </View>
+
+      {subTab === "geral" && (
+        <>
+          <Card style={{ marginBottom: 14 }}>
+            <View style={styles.saudeRow}>
+              <View style={styles.saudeItem}>
+                <Text style={[styles.saudeValue, { color: Colors.orange }]}>{pesoAtual ? `${pesoAtual}kg` : "--"}</Text>
+                <Text style={styles.saudeLabel}>Peso atual</Text>
+              </View>
+              <View style={styles.saudeItem}>
+                <Text style={styles.saudeValue}>1,79m</Text>
+                <Text style={styles.saudeLabel}>Altura</Text>
+              </View>
+              {pesoAtual && (
+                <View style={styles.saudeItem}>
+                  <Text style={[styles.saudeValue, { color: Colors.gold }]}>
+                    {(pesoAtual / (1.79 * 1.79)).toFixed(1)}
+                  </Text>
+                  <Text style={styles.saudeLabel}>IMC</Text>
+                </View>
+              )}
+            </View>
+
+            {pesoInicial && pesoAtual && pesoInicial !== pesoAtual && (
+              <Text style={[styles.pesoChange, { color: pesoAtual < pesoInicial ? Colors.green : Colors.orange }]}>
+                {pesoAtual < pesoInicial ? "▼" : "▲"} {Math.abs(pesoAtual - pesoInicial).toFixed(1)}kg desde o início
               </Text>
-              <Text style={styles.saudeLabel}>IMC</Text>
+            )}
+
+            <View style={styles.pesoInputRow}>
+              <TextInput
+                style={styles.pesoInput}
+                placeholder="Novo peso (kg)..."
+                placeholderTextColor={Colors.textTertiary}
+                value={novoPeso}
+                onChangeText={setNovoPeso}
+                keyboardType="decimal-pad"
+              />
+              <Pressable
+                style={styles.pesoAddBtn}
+                onPress={async () => {
+                  const v = parseFloat(novoPeso.replace(",", "."));
+                  if (v > 0) {
+                    await addPeso(v);
+                    setNovoPeso("");
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                }}
+              >
+                <Feather name="plus" size={18} color="#fff" />
+              </Pressable>
+            </View>
+          </Card>
+
+          <Card style={{ marginBottom: 14 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <View>
+                <Text style={{ fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.text }}>Tracker de Água</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.textSecondary }}>Meta: 3000ml / dia</Text>
+              </View>
+              <Text style={{ fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.accent }}>{agua}ml</Text>
+            </View>
+            <ProgressBar value={Math.min((agua/3000)*100, 100)} max={100} color={Colors.accent} height={8} style={{ borderRadius: 4 }} />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+              {[250, 500].map(v => (
+                <Pressable key={v} style={{ flex: 1, backgroundColor: Colors.accentDim, paddingVertical: 10, borderRadius: 10, alignItems: "center" }} onPress={() => handleAddAgua(v)}>
+                  <Text style={{ color: Colors.accent, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>+ {v}ml</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Card>
+
+          {pesos.length > 1 && (
+            <View>
+              <Text style={[styles.subLabel, { marginTop: 12 }]}>Histórico de peso</Text>
+              {pesos.slice(-5).reverse().map(p => (
+                <View key={p.id} style={styles.pesoHistItem}>
+                  <Text style={styles.pesoHistData}>{new Date(p.data).toLocaleDateString("pt-BR")}</Text>
+                  <Text style={styles.pesoHistVal}>{p.peso}kg</Text>
+                </View>
+              ))}
             </View>
           )}
-        </View>
+        </>
+      )}
 
-        {pesoInicial && pesoAtual && pesoInicial !== pesoAtual && (
-          <Text style={[styles.pesoChange, { color: pesoAtual < pesoInicial ? Colors.green : Colors.orange }]}>
-            {pesoAtual < pesoInicial ? "▼" : "▲"} {Math.abs(pesoAtual - pesoInicial).toFixed(1)}kg desde o início
-          </Text>
-        )}
+      {subTab === "treinos" && (
+        <>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable
+              style={[styles.aiTreinoBtn, { flex: 1 }, generating && { opacity: 0.6 }]}
+              onPress={generating ? undefined : generateTrainingPlan}
+              disabled={generating}
+            >
+              {generating ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : (
+                <Feather name="cpu" size={14} color={Colors.accent} />
+              )}
+              <Text style={styles.aiTreinoBtnText}>
+                {generating ? "Gerando..." : "Gerar com IA"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.aiTreinoBtn, { flex: 1, borderColor: Colors.purple }]}
+              onPress={async () => {
+                const id = await addNota("Novo Treino", "## Exercícios\n\n- ");
+                router.push({ pathname: "/nota-editor" as any, params: { id } });
+              }}
+            >
+              <Feather name="plus" size={14} color={Colors.purple} />
+              <Text style={[styles.aiTreinoBtnText, { color: Colors.purple }]}>Novo Treino</Text>
+            </Pressable>
+          </View>
 
-        <View style={styles.pesoInputRow}>
-          <TextInput
-            style={styles.pesoInput}
-            placeholder="Novo peso (kg)..."
-            placeholderTextColor={Colors.textTertiary}
-            value={novoPeso}
-            onChangeText={setNovoPeso}
-            keyboardType="decimal-pad"
-          />
-          <Pressable
-            style={styles.pesoAddBtn}
-            onPress={async () => {
-              const v = parseFloat(novoPeso.replace(",", "."));
-              if (v > 0) {
-                await addPeso(v);
-                setNovoPeso("");
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            }}
-          >
-            <Feather name="plus" size={18} color="#fff" />
-          </Pressable>
-        </View>
-      </Card>
-
-      <Pressable
-        style={styles.aiTreinoBtn}
-        onPress={() => router.push({ pathname: "/chat", params: { initialMessage: "Crie um plano de treino bodyweight completo para mim: 17 anos, 81kg, 1,79m, sem equipamentos. Inclua aquecimento, exercícios, séries, reps e dicas de alimentação barata." } })}
-      >
-        <Feather name="cpu" size={14} color={Colors.accent} />
-        <Text style={styles.aiTreinoBtnText}>Gerar plano de treino personalizado com IA</Text>
-      </Pressable>
-
-      {pesos.length > 1 && (
-        <View>
-          <Text style={[styles.subLabel, { marginTop: 12 }]}>Histórico de peso</Text>
-          {pesos.slice(-5).reverse().map(p => (
-            <View key={p.id} style={styles.pesoHistItem}>
-              <Text style={styles.pesoHistData}>{new Date(p.data).toLocaleDateString("pt-BR")}</Text>
-              <Text style={styles.pesoHistVal}>{p.peso}kg</Text>
-            </View>
+          <Text style={[styles.subLabel, { marginTop: 16, marginBottom: 8 }]}>Meus Treinos</Text>
+          {treinos.length === 0 && <Text style={{ fontSize: 13, color: Colors.textTertiary, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 20 }}>Nenhum treino gerado ou criado em Notas.</Text>}
+          {treinos.map(nota => (
+            <Pressable key={nota.id} style={styles.notaCard} onPress={() => router.push({ pathname: "/nota-editor" as any, params: { id: nota.id } })}>
+              <Text style={styles.notaTitulo} numberOfLines={1}>{nota.titulo}</Text>
+              <Text style={styles.notaPreview} numberOfLines={2}>{nota.conteudo}</Text>
+            </Pressable>
           ))}
-        </View>
+        </>
       )}
     </View>
   );

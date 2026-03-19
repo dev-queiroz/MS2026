@@ -92,7 +92,7 @@ function AtividadesModal({ materia, atividades, onClose }: {
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => {}}>
+        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => { }}>
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Atividades — {materia.nome}</Text>
@@ -150,7 +150,7 @@ function AtividadesModal({ materia, atividades, onClose }: {
                     </Pressable>
                   ))}
                 </ScrollView>
-                
+
                 <Pressable onPress={() => setShowDatePicker(true)} style={styles.addInputDate}>
                   <Text style={{ color: prazo ? Colors.text : Colors.textTertiary }}>
                     {prazo ? new Date(prazo + "T12:00:00").toLocaleDateString("pt-BR") : "Prazo (Selecione a data)..."}
@@ -168,7 +168,7 @@ function AtividadesModal({ materia, atividades, onClose }: {
                     }}
                   />
                 )}
-                
+
                 <View style={styles.addAtivBtns}>
                   <Pressable style={styles.cancelBtn} onPress={() => { setAdding(false); setEditingId(null); }}>
                     <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -235,7 +235,7 @@ function MateriaCard({ materia, atividades }: { materia: Materia; atividades: At
               <Text style={[styles.faltasCount, { color: statusColor }]}>{count}</Text>
             </View>
             <Text style={styles.faltasLabel}>/{materia.maxFaltas} faltas</Text>
-            
+
             <View style={styles.faltaBtnsContainer}>
               <Pressable style={styles.faltaBtn} onPress={() => removeFalta(materia.id)}>
                 <Feather name="minus" size={14} color={Colors.textSecondary} />
@@ -255,10 +255,38 @@ function MateriaCard({ materia, atividades }: { materia: Materia; atividades: At
           </Pressable>
         </View>
 
+        {pendentes > 0 && (
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border }}>
+            <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.text, marginBottom: 8 }}>
+              Próximos prazos
+            </Text>
+            {mAtividades
+              .filter(a => a.status !== "concluída" && a.prazo)
+              .sort((a, b) => new Date(a.prazo!).getTime() - new Date(b.prazo!).getTime())
+              .slice(0, 3)
+              .map(a => {
+                const dias = Math.ceil((new Date(a.prazo!).getTime() - Date.now()) / 86400000);
+                const cor = dias <= 1 ? Colors.red : dias <= 5 ? Colors.gold : Colors.textSecondary;
+                return (
+                  <View key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: materia.cor }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.text }}>{a.titulo}</Text>
+                      <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.textSecondary }}>{a.tipo}</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: cor }}>
+                      {dias <= 0 ? "Hoje" : `${dias}d`}
+                    </Text>
+                  </View>
+                );
+              })}
+          </View>
+        )}
+
         <View style={styles.materiaActions}>
-          <Pressable style={[styles.actionBtn, {backgroundColor: Colors.accent}]} onPress={() => setShowAtividades(true)}>
+          <Pressable style={[styles.actionBtn, { backgroundColor: Colors.accent }]} onPress={() => setShowAtividades(true)}>
             <Feather name="list" size={14} color="#fff" />
-            <Text style={[styles.actionBtnText, {color: "#fff"}]}>Atividades   {pendentes > 0 ? `(${pendentes} pendentes)` : ''}</Text>
+            <Text style={[styles.actionBtnText, { color: "#fff" }]}>Atividades   {pendentes > 0 ? `(${pendentes} pendentes)` : ''}</Text>
           </Pressable>
         </View>
       </Card>
@@ -294,7 +322,7 @@ function AddMateriaModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => {}}>
+        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => { }}>
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Nova Matéria</Text>
@@ -378,7 +406,7 @@ function EditMateriaModal({ materia, onClose }: { materia: Materia; onClose: () 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => {}}>
+        <Pressable style={[styles.modalSheet, { paddingBottom: isWeb ? 40 : 34 }]} onPress={() => { }}>
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Editar Matéria</Text>
@@ -443,12 +471,6 @@ export default function FaculdadeScreen() {
   const { materias, atividades, loading } = useAppData();
   const [showAdd, setShowAdd] = useState(false);
   const isWeb = Platform.OS === "web";
-
-  const proximasAtividades = atividades
-    .filter(a => a.status !== "concluída" && a.prazo)
-    .sort((a, b) => new Date(a.prazo!).getTime() - new Date(b.prazo!).getTime())
-    .slice(0, 5);
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -468,30 +490,6 @@ export default function FaculdadeScreen() {
             <Text style={styles.addMateriaBtnText}>Matéria</Text>
           </Pressable>
         </View>
-
-        {/* Próximas atividades */}
-        {proximasAtividades.length > 0 && (
-          <View style={styles.proximasSection}>
-            <Text style={styles.proximasTitle}>Próximos prazos</Text>
-            {proximasAtividades.map(a => {
-              const dias = Math.ceil((new Date(a.prazo!).getTime() - Date.now()) / 86400000);
-              const cor = dias <= 1 ? Colors.red : dias <= 5 ? Colors.gold : Colors.textSecondary;
-              const mat = materias.find(m => m.id === a.materiaId);
-              return (
-                <View key={a.id} style={styles.proximaItem}>
-                  <View style={[styles.proximaDot, { backgroundColor: mat?.cor ?? Colors.accent }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.proximaTitulo}>{a.titulo}</Text>
-                    <Text style={styles.proximaMat}>{mat?.nome} • {a.tipo}</Text>
-                  </View>
-                  <Text style={[styles.proximaDias, { color: cor }]}>
-                    {dias <= 0 ? "Hoje" : `${dias}d`}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
 
         {materias.length === 0 && (
           <View style={styles.emptyState}>

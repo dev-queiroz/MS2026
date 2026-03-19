@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -99,13 +100,29 @@ export default function ChatScreen() {
   const [showTyping, setShowTyping] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const initRef = useRef(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (params.initialMessage && !initRef.current) {
-      initRef.current = true;
-      setTimeout(() => handleSend(params.initialMessage!), 600);
-    }
+    AsyncStorage.getItem("chat_history").then(val => {
+      if (val) {
+        try {
+          const parsed = JSON.parse(val);
+          if (parsed.length > 0) setMessages(parsed);
+        } catch {}
+      }
+      loadedRef.current = true;
+      if (params.initialMessage && !initRef.current) {
+        initRef.current = true;
+        setTimeout(() => handleSend(params.initialMessage!), 600);
+      }
+    });
   }, []);
+
+  useEffect(() => {
+    if (loadedRef.current) {
+      AsyncStorage.setItem("chat_history", JSON.stringify(messages)).catch(() => {});
+    }
+  }, [messages]);
 
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
@@ -139,7 +156,7 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({
           model: groqModel,
-          stream: true,
+          stream: false,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             ...history.map(m => ({ role: m.role, content: m.content })),
@@ -153,43 +170,30 @@ export default function ChatScreen() {
         throw new Error(err);
       }
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let full = "";
-      let added = false;
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-          try {
-            const j = JSON.parse(data);
-            const chunk = j.choices?.[0]?.delta?.content;
-            if (chunk) {
-              full += chunk;
-              if (!added) {
-                setShowTyping(false);
-                setMessages(prev => [...prev, { id: uid(), role: "assistant", content: full }]);
-                added = true;
-              } else {
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: full };
-                  return updated;
-                });
-              }
-            }
-          } catch {}
-        }
+      const json = await response.json();
+      const content = json.choices?.[0]?.message?.content || "";
+      
+      setShowTyping(false);
+      
+      // Simulate typing effect for UX
+      const msgId = uid();
+      setMessages(prev => [...prev, { id: msgId, role: "assistant", content: "" }]);
+      
+      let currentContent = "";
+      const chunks = content.split(" ");
+      for (let i = 0; i < chunks.length; i++) {
+        currentContent += (i > 0 ? " " : "") + chunks[i];
+        setMessages(prev => {
+          const updated = [...prev];
+          const lastIdx = updated.length - 1;
+          if (updated[lastIdx].id === msgId) {
+            updated[lastIdx] = { ...updated[lastIdx], content: currentContent };
+          }
+          return updated;
+        });
+        await new Promise(r => setTimeout(r, 20)); // typing speed
       }
+      
     } catch (e: any) {
       setShowTyping(false);
       setMessages(prev => [...prev, {

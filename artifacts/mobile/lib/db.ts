@@ -1,12 +1,17 @@
 import * as SQLite from "expo-sqlite";
 
-let _db: SQLite.SQLiteDatabase | null = null;
+let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export async function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (_db) return _db;
-  _db = await SQLite.openDatabaseAsync("meu_futuro_2026.db");
-  await initSchema(_db);
-  return _db;
+export function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (_dbPromise) return _dbPromise;
+
+  _dbPromise = (async () => {
+    const db = await SQLite.openDatabaseAsync("meu_futuro_2026.db");
+    await initSchema(db);
+    return db;
+  })();
+
+  return _dbPromise;
 }
 
 async function initSchema(db: SQLite.SQLiteDatabase) {
@@ -43,11 +48,6 @@ async function initSchema(db: SQLite.SQLiteDatabase) {
       notificationId TEXT,
       FOREIGN KEY(materiaId) REFERENCES materias(id) ON DELETE CASCADE
     );
-
-    CREATE INDEX IF NOT EXISTS idx_faltas_materia ON faltas_registro(materiaId);
-    CREATE INDEX IF NOT EXISTS idx_atividades_materia ON atividades(materiaId);
-    CREATE INDEX IF NOT EXISTS idx_atividades_prazo ON atividades(prazo);
-    CREATE INDEX IF NOT EXISTS idx_milestones_goal ON milestones(goalId);
 
     CREATE TABLE IF NOT EXISTS goals (
       id TEXT PRIMARY KEY,
@@ -111,17 +111,28 @@ async function initSchema(db: SQLite.SQLiteDatabase) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_faltas_materia ON faltas_registro(materiaId);
+    CREATE INDEX IF NOT EXISTS idx_atividades_materia ON atividades(materiaId);
+    CREATE INDEX IF NOT EXISTS idx_atividades_prazo ON atividades(prazo);
+    CREATE INDEX IF NOT EXISTS idx_milestones_goal ON milestones(goalId);
   `);
 
   // Ensure notificationId exists for older tables
   try {
-    await db.execAsync("ALTER TABLE atividades ADD COLUMN notificationId TEXT;");
-  } catch (e) {}
-  
+    const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(atividades)");
+    if (!tableInfo.find(c => c.name === 'notificationId')) {
+      await db.execAsync("ALTER TABLE atividades ADD COLUMN notificationId TEXT;");
+    }
+  } catch (e) { }
+
   // Ensure faltasAtuais exists in materias
   try {
-    await db.execAsync("ALTER TABLE materias ADD COLUMN faltasAtuais INTEGER DEFAULT 0;");
-  } catch (e) {}
+    const tableInfo = await db.getAllAsync<{ name: string }>("PRAGMA table_info(materias)");
+    if (!tableInfo.find(c => c.name === 'faltasAtuais')) {
+      await db.execAsync("ALTER TABLE materias ADD COLUMN faltasAtuais INTEGER DEFAULT 0;");
+    }
+  } catch (e) { }
 }
 
 function uid(): string {
@@ -278,9 +289,9 @@ export async function addGoal(data: {
     `INSERT INTO goals (id,titulo,especifica,mensuravel,metrica,metaNumerica,valorAtual,alcancavel,relevante,prazo,progresso,cor,createdAt)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [id, data.titulo, data.especifica ?? "", data.mensuravel ?? "", data.metrica ?? "",
-     data.metaNumerica ?? 100, data.valorAtual ?? 0, data.alcancavel ?? "",
-     data.relevante ?? "", data.prazo ?? null, data.progresso ?? 0, data.cor ?? "#4F7FFF",
-     new Date().toISOString()]
+      data.metaNumerica ?? 100, data.valorAtual ?? 0, data.alcancavel ?? "",
+      data.relevante ?? "", data.prazo ?? null, data.progresso ?? 0, data.cor ?? "#4F7FFF",
+      new Date().toISOString()]
   );
   return id;
 }
@@ -432,10 +443,10 @@ export async function exportAllDataAsJSON() {
   const db = await getDb();
   const json: any = {};
   const tables = ["materias", "faltas_registro", "atividades", "goals", "milestones", "notas", "transacoes", "pesos", "freelas", "settings"];
-  
+
   for (const t of tables) {
     json[t] = await db.getAllAsync(`SELECT * FROM ${t}`);
   }
-  
+
   return JSON.stringify(json, null, 2);
 }

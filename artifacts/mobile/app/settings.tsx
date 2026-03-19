@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system";
+// Use the new File class to avoid deprecation warnings if available, otherwise fallback
+const { File } = FileSystem as any;
 import * as Sharing from "expo-sharing";
 import { Colors } from "@/constants/colors";
 import { useSettings, GROQ_MODELS } from "@/contexts/SettingsContext";
@@ -36,7 +38,13 @@ export default function SettingsScreen() {
     try {
       const json = await exportAllDataAsJSON();
       const fileUri = (FileSystem as any).documentDirectory + "meu_futuro_2026_backup.json";
-      await (FileSystem as any).writeAsStringAsync(fileUri, json, { encoding: (FileSystem as any).EncodingType.UTF8 });
+      
+      if (typeof File !== 'undefined') {
+        const f = new File(fileUri);
+        await f.writeAsync(json);
+      } else {
+        await (FileSystem as any).writeAsStringAsync(fileUri, json);
+      }
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri);
       } else {

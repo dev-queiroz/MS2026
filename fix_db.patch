@@ -1,0 +1,22 @@
+--- artifacts/mobile/lib/db.ts
++++ artifacts/mobile/lib/db.ts
+@@ -2,10 +2,14 @@
+ 
+-let _db: SQLite.SQLiteDatabase | null = null;
++let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+ 
+ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
+-  if (_db) return _db;
+-  _db = await SQLite.openDatabaseAsync("meu_futuro_2026.db");
+-  await initSchema(_db);
+-  return _db;
++  if (_dbPromise) return _dbPromise;
++  
++  _dbPromise = (async () => {
++    const db = await SQLite.openDatabaseAsync("meu_futuro_2026.db");
++    await initSchema(db);
++    return db;
++  })();
++  
++  return _dbPromise;
+ }
